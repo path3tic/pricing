@@ -4,6 +4,7 @@ import pandas as pd
 import seaborn as sns
 import tensorflow as tf
 
+
 from tensorflow.keras import layers
 from tensorflow.keras.layers.experimental import preprocessing
 
@@ -21,84 +22,102 @@ def plot_horsepower(x, y):
 
 print(tf.__version__)
 
-url = 'C:\Users\zajic\PycharmProjects\pricing/auto-mpg.data'
-column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight', 'Acceleration', 'Model Year', 'Origin']
+path = r'C:\Users\zajic\PycharmProjects\pricing\pricing.csv'
 
-raw_dataset = pd.read_csv(url, names=column_names, na_values='?', comment='\t', sep=' ', skipinitialspace=True)
+column_names = ['Fee', 'Complexity', 'Country', 'Deliverable']
 
-dataset = raw_dataset.copy()
-dataset.tail()
-dataset.isna().sum()
-dataset = dataset.dropna()
+dataset = pd.read_csv(path, names=column_names, sep=',')
+# print(dataset)
 
 # one-hot encoding
-dataset['Origin'] = dataset['Origin'].map({1: 'USA', 2: 'Europe', 3: 'Japan'})
+dataset['Country'] = dataset['Country'].map({1: 'USA', 2: 'Europe', 3: 'Japan'})
+dataset = pd.get_dummies(dataset, columns=['Country'], prefix='', prefix_sep='')
 
-dataset = pd.get_dummies(dataset, columns=['Origin'], prefix='', prefix_sep='')
-dataset.tail()
+dataset['Deliverable'] = dataset['Deliverable'].map({1: 'FS', 2: 'GAAP', 3: 'Filing'})
+dataset = pd.get_dummies(dataset, columns=['Deliverable'], prefix='', prefix_sep='')
+print(dataset)
 
+# divide into test and train sets
 train_dataset = dataset.sample(frac=0.8, random_state=0)
 test_dataset = dataset.drop(train_dataset.index)
 
-sns.pairplot(train_dataset[['MPG', 'Cylinders', 'Displacement', 'Weight']], diag_kind='kde')
-plt.show()
+# show relations in train dataset
+#sns.pairplot(train_dataset[['MPG', 'Cylinders', 'Displacement', 'Weight']], diag_kind='kde')
+#plt.show()
 
-train_dataset.describe().transpose()
-
+# print(train_dataset.describe().transpose())
 train_features = train_dataset.copy()
 test_features = test_dataset.copy()
 
-train_labels = train_features.pop('MPG')
-test_labels = test_features.pop('MPG')
+train_labels = train_features.pop('Fee')
+test_labels = test_features.pop('Fee')
 
-train_dataset.describe().transpose()[['mean', 'std']]
+# print(train_dataset.describe().transpose()[['mean', 'std']])
 
+# normalization
 normalizer = preprocessing.Normalization(axis=-1)
-
 normalizer.adapt(np.array(train_features))
+# print(normalizer.mean.numpy())
 
-print(normalizer.mean.numpy())
+# model
+def build_and_compile_model(norm):
+    model = tf.keras.Sequential([
+        norm,
+        layers.Dense(64, activation='relu'),
+        layers.Dense(64, activation='relu'),
+        layers.Dense(1)
+    ])
 
-first = np.array(train_features[:1])
+    model.compile(loss='mean_absolute_error', optimizer=tf.keras.optimizers.Adam(0.001))
+    return model
 
-with np.printoptions(precision=2, suppress=True):
-    print('First example:', first)
-    print()
-    print('Normalized:', normalizer(first).numpy())
 
-horsepower = np.array(train_features['Horsepower'])
+def plot_loss(history):
+  plt.plot(history.history['loss'], label='loss')
+  plt.plot(history.history['val_loss'], label='val_loss')
+  plt.ylim([0, 10])
+  plt.xlabel('Epoch')
+  plt.ylabel('Error [MPG]')
+  plt.legend()
+  plt.grid(True)
 
-horsepower_normalizer = preprocessing.Normalization(input_shape=[1, ], axis=None)
-horsepower_normalizer.adapt(horsepower)
+# model
 
-horsepower_model = tf.keras.Sequential([
-    horsepower_normalizer,
-    layers.Dense(units=1)
-])
+dnn_model = build_and_compile_model(normalizer)
+print('-----')
+dnn_model.summary()
 
-horsepower_model.summary()
 
-horsepower_model.predict(horsepower[:10])
+history = dnn_model.fit(
+    train_features, train_labels,
+    validation_split=0.2,
+    verbose=0, epochs=100)
 
-horsepower_model.compile(
-    optimizer=tf.optimizers.Adam(learning_rate=0.1),
-    loss='mean_absolute_error')
+plot_loss(history)
 
-history = horsepower_model.fit(
-    train_features['Horsepower'], train_labels,
-    epochs=100,
-    # suppress logging
-    verbose=1,
-    # Calculate validation results on 20% of the training data
-    validation_split=0.2)
+plt.show()
 
-test_results = {'horsepower_model': horsepower_model.evaluate(
-    test_features['Horsepower'],
-    test_labels, verbose=0)}
+test_results = {}
+test_results['dnn_model'] = dnn_model.evaluate(test_features, test_labels, verbose=0)
 
-x = tf.linspace(0.0, 250, 251)
-y = horsepower_model.predict(x)
+#pd.DataFrame(test_results, index=['Mean absolute error [MPG]']).T
 
-plot_horsepower(x, y)
+test_predictions = dnn_model.predict(test_features).flatten()
+plt.show()
+a = plt.axes(aspect='equal')
+plt.scatter(test_labels, test_predictions)
+plt.xlabel('True Values [MPG]')
+plt.ylabel('Predictions [MPG]')
 
-print('ppp')
+lims = [0, 50]
+plt.xlim(lims)
+plt.ylim(lims)
+
+_ = plt.plot(lims, lims)
+plt.show()
+print(test_features)
+print(test_predictions)
+result = test_features
+result['Amount'] = test_predictions
+print(result)
+result.to_csv('result.csv')
