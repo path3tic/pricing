@@ -10,16 +10,6 @@ from tensorflow.keras.layers.experimental import preprocessing
 
 np.set_printoptions(precision=3, suppress=True)
 
-
-def plot_horsepower(x, y):
-    plt.scatter(train_features['Horsepower'], train_labels, label='Data')
-    plt.plot(x, y, color='k', label='Predictions')
-    plt.xlabel('Horsepower')
-    plt.ylabel('MPG')
-    plt.legend()
-    plt.show()
-
-
 print(tf.__version__)
 
 path = r'C:\Users\zajic\PycharmProjects\pricing\pricing.csv'
@@ -35,15 +25,15 @@ dataset = pd.get_dummies(dataset, columns=['Country'], prefix='', prefix_sep='')
 
 dataset['Deliverable'] = dataset['Deliverable'].map({1: 'FS', 2: 'GAAP', 3: 'Filing'})
 dataset = pd.get_dummies(dataset, columns=['Deliverable'], prefix='', prefix_sep='')
-print(dataset)
+#print(dataset)
 
 # divide into test and train sets
 train_dataset = dataset.sample(frac=0.8, random_state=0)
 test_dataset = dataset.drop(train_dataset.index)
 
 # show relations in train dataset
-#sns.pairplot(train_dataset[['MPG', 'Cylinders', 'Displacement', 'Weight']], diag_kind='kde')
-#plt.show()
+sns.pairplot(train_dataset[['Fee', 'Complexity']], diag_kind='kde')
+plt.show()
 
 # print(train_dataset.describe().transpose())
 train_features = train_dataset.copy()
@@ -77,7 +67,7 @@ def plot_loss(history):
   plt.plot(history.history['val_loss'], label='val_loss')
   plt.ylim([0, 10])
   plt.xlabel('Epoch')
-  plt.ylabel('Error [MPG]')
+  plt.ylabel('Error [Fee]')
   plt.legend()
   plt.grid(True)
 
@@ -100,14 +90,14 @@ plt.show()
 test_results = {}
 test_results['dnn_model'] = dnn_model.evaluate(test_features, test_labels, verbose=0)
 
-#pd.DataFrame(test_results, index=['Mean absolute error [MPG]']).T
+#pd.DataFrame(test_results, index=['Mean absolute error [Fee]']).T
 
 test_predictions = dnn_model.predict(test_features).flatten()
 plt.show()
 a = plt.axes(aspect='equal')
 plt.scatter(test_labels, test_predictions)
-plt.xlabel('True Values [MPG]')
-plt.ylabel('Predictions [MPG]')
+plt.xlabel('True Values [Fee]')
+plt.ylabel('Predictions [Fee]')
 
 lims = [0, 50]
 plt.xlim(lims)
@@ -118,6 +108,6 @@ plt.show()
 print(test_features)
 print(test_predictions)
 result = test_features
-result['Amount'] = test_predictions
+result['Fee'] = test_predictions
 print(result)
 result.to_csv('result.csv')
